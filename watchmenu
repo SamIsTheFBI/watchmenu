@@ -1,0 +1,95 @@
+#!/bin/sh
+
+#Define local directories
+dir1=~/Media/Anime
+dir2=~/Media/TV\ Shows
+dir3=~/Media/Movies
+
+#Add cloud (rclone, nextcloud, etc.) directories
+#Uncomment these lines filling in respective paths and then put those dir vars in abs_dir() & search_results() 
+#var=$(ip route get 8.8.8.8 | awk '{print $1; exit}')
+#if [ $var == '8.8.8.8' ]; then
+#		dir4=~/Cloud/Media/Anime
+#		dir5=~/Cloud/Media/Movies
+#		dir6=~/Cloud/Media/TV\ Shows
+#else
+#		dir4=~
+#		dir5=~
+#		dir6=~
+#fi
+
+help(){
+	tmp=$(printf 'USAGE:\nSearch for media you have in your device\nTo list all entries in your media dirs, just press enter/escape key in search screen\nPress Esc key in episodes menu to play whole season as playlist\nCOMMANDS:\n:q - Quit\n:s - Go to search screen\n:b - Go back to previous screen' | dmenu -i -p 'Help: ' -l 12)
+	main
+}
+
+main(){
+#Search query
+	query=$( echo | dmenu -p "Search query: ")
+	echo "Search Query: $query"
+	[[ $query == ':q' ]] && exit || [[ $query == ':h' ]] && help || search_results
+}
+
+abs_dir(){
+#Get the root directory of given file/sub-directory by checking with above specified directories
+path=$(find "$dir1/$1" -maxdepth 0 || find "$dir2/$1" -maxdepth 0 || find "$dir3/$1" -maxdepth 0 || find "$dir4/$1" -maxdepth 0 || find "$dir5/$1" -maxdepth 0 || find "$dir6/$1" -maxdepth 0);
+  if [ -z "$path" ]; then
+    echo "This path does not exist!" && exit
+  else
+    show_dir="$path"
+  fi;
+  func_result="$show_dir"
+  echo "$func_result"
+}
+
+search_results(){
+#Choose show from search results
+	if [ -z "$query" ]; then
+		show=$(find "$dir1" "$dir2" "$dir3" "$dir4" "$dir5" "$dir6" -maxdepth 1 | sort -V | awk -F"/" '{ print $NF; }' | dmenu -i -p 'Choose: ' -l 12)
+	else
+		show=$(find "$dir1" "$dir2" "$dir3" "$dir4" "$dir5" "$dir6" -maxdepth 1 -iname "*$query*" | sort -V | awk -F"/" '{ print $NF; }' | dmenu -i -p 'Choose: ' -l 12)
+	fi
+
+#If nothing is chosen from the list i.e. escape key is pressed, exit
+	if [ -z "$show" ]; then
+  	exit
+	fi
+
+#If chosen option is a video file then, play it
+	file_path="$(abs_dir "$show")"
+	if [ $(file -i "$file_path" | grep -o 'video') = "video" ]; then
+		mpv --fs --save-position-on-quit --no-keepaspect-window "$file_path"
+		main
+	fi
+
+#If the selected option is a directory, append it to correct root directory with abs_dir function
+	show_dir="$(abs_dir "$show")"
+	echo Show Dir: "$show_dir"
+	[[ $show == ':q' ]] && exit || [[ $show == ':s' ]] && main || [[ $show == ':b' ]] && main || season_list
+}
+
+season_list(){
+#Choose season of the show previously chosen
+	if [[ "$show_dir" == */Movie* ]]; then
+		season_dir="$show_dir" && episode_list
+	else
+		season=$(find "$show_dir" -mindepth 1 -type d | sort -V | awk -F"/" '{ print $NF; }' | dmenu -i -p 'Choose season' -l 12)
+		season_dir="$show_dir/$season"
+		echo "Season Dir: $season_dir"
+		[[ $season == ':s' ]] && main || [[ $season == ':b' ]] && search_results || [[ $season == ':q' ]] && exit || episode_list
+	fi
+}
+
+episode_list(){
+#Choose episode of the season previously chosen
+	episode=$(find "$season_dir" -type f | awk -F"/" '{ print $NF; }'  | sort -V -u | dmenu -i -p 'Choose episode' -l 12)
+	file_path="$season_dir/$episode"
+	echo "File path: $file_path"
+	[[ "$season_dir" == "$show_dir" && $episode == ':b' ]] && search_results
+	[[ $episode == ':s' ]] && main || [[ $episode == ':b' ]] && season_list || [[ $episode == ':q' ]] && exit || mpv --fs --save-position-on-quit --no-keepaspect-window "$file_path"
+	episode_list
+}
+
+while true; do
+	main
+done
