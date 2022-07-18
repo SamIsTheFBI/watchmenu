@@ -53,7 +53,7 @@ main(){
     echo "Search Query: $query"
     [[ $query == :q* || "$query" == ' Cancel' ]] && exit
     [[ $query == ':h' || "$query" == ' Help' ]] && help
-    if [[ "$query" == *Last* ]]; then
+    if [[ "$query" == *神\ Last\ Played* ]]; then
         [ ! -f ~/.cache/watchmenu-last-played ] && notify-send -t 2000 "" "No record of last played items" && main
         $video_player "$LAST_PLAYED" && main
     fi
