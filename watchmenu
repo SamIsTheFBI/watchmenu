@@ -16,7 +16,7 @@ dir4=~/Videos
 
 prompt="dmenu -c -l 16 -p"
 # prompt="rofi -dmenu -p"
-# prompt="fzf --prompt"
+# prompt="fzf --bind alt-enter:print-query --prompt"
 
 video_player="mpv --fs --save-position-on-quit --no-keepaspect-window"
 
