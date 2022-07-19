@@ -2,7 +2,7 @@
 A little dmenu script to watch your downloaded TV shows, movies and anime in style. This script lists all your media in an organized manner using dmenu (or rofi if you prefer), trying to mimic a media library kind of aesthetic but in a suckless way :)
 
 ## Dependencies
-- dmenu/rofi
+- dmenu/rofi/fzf
 - mpv
 - awk
 - Your media library
@@ -26,6 +26,7 @@ Pressing `Escape key` inside Episode menu (season directory) will start mpv with
 | `:h`              | Help screen which only works in Search menu                      |
 | `Shift` + `Enter` | Ignore the selection and search for the term you typed (dmenu)   |
 | `Ctrl` + `Enter`  | Ignore the selection and search for the term you typed (rofi)    |
+| `Alt` + `Enter`   | Ignore the selection and search for the term you typed (fzf)     |
 
 ## Directory Structure
 
