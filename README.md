@@ -21,7 +21,7 @@ Pressing `Escape key` inside Episode menu (season directory) will start mpv with
 | Keys/Commands     | What it will do                                                  |
 |-------------------|------------------------------------------------------------------|
 | `:s`              | Go to Search menu                                                |
-| `:q`              | Quit dmenu                                                       |
+| `:q`              | Quit watchmenu                                                   |
 | `:b`              | Go back to previous menu                                         |
 | `:h`              | Help screen which only works in Search menu                      |
 | `Shift` + `Enter` | Ignore the selection and search for the term you typed (dmenu)   |
