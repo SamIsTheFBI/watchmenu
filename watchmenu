@@ -17,7 +17,7 @@ VIDEO_PLAYER="mpv --fs --save-position-on-quit --no-keepaspect-window"
 
 ANIME_DIRS=( "${HOME}/Media/Anime" "${HOME}/Shared/Media/Anime" "${HOME}/Cloud/Media/Anime" )
 TVSHOW_DIRS=( "${HOME}/Media/TV Shows" "${HOME}/Shared/Media/TV Shows" "${HOME}/Cloud/Media/TV Shows" )
-MOVIE_DIRS=( "${HOME}/Media/Movies" "${HOME}/Shared/Media/Movies" "${HOME}/Cloud/Media/TV Shows" )
+MOVIE_DIRS=( "${HOME}/Media/Movies" "${HOME}/Shared/Media/Movies" "${HOME}/Cloud/Media/Movies" )
 VIDEO_DIRS=( "${HOME}/Videos" "${HOME}/Downloads" )
 
 help () {
