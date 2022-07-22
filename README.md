@@ -30,7 +30,7 @@ Pressing `Escape key` inside Episode menu (season directory) will start mpv with
 
 ## Directory Structure
 
-You can edit the directory variables in the script to add your media directories. If adding more variables, be sure to add them to `update_list`, `abs_dir` and `search_results` functions. 
+You can add your media directories to respective arrays in the script.
 
 You are supposed to use the directory structure that Plex, Jellyfin and such media servers understand. So, the following should suffice:
 
