@@ -12,11 +12,13 @@ https://user-images.githubusercontent.com/70562711/179566428-4dc1dd8f-65ac-4c8b-
 
 ## Usage
 
-The script has a variable for choosing the desired menu like `dmenu` or `rofi`. Run the script and dmenu/rofi should pop up. I will be referring to these as different menu. So when the prompt reads "Search", consider it the Search menu. I'll use the same analogy throughout this readme.
+Run the script and dmenu should pop up. I will be referring to these as different menu. So when the prompt reads "Search", consider it the Search menu. I'll use the same analogy throughout this readme.
 
 Upon running the script, you will be greeted with the Search menu. Here you can either press `Enter key` to list all your TV shows & movies or type a `search term` to search for in your media directories.
 
 Pressing `Escape key` inside Episode menu (season directory) will start mpv with that directory as playlist. This will also save your watch progress and I think that's cool.You can do the same to watch all episodes of a show as playlist if you press Escape twice in Season menu. 
+
+Note: You can set `WATCHMENU_PROMPT` in environment variables to change prompt to rofi or fzf. Same can be done with `VIDEO_PLAYER`.  
 
 | Keys/Commands     | What it will do                                                  |
 |-------------------|------------------------------------------------------------------|
