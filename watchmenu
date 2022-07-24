@@ -80,20 +80,32 @@ help () {
 
 # Update media list
 update_list () {
-    find "${ANIME_DIRS[@]}" -maxdepth 1 -mindepth 1 -type d  2>/dev/null \
-        | awk -F '/' '{print $NF}' \
-        | sort > "${WATCHMENU_CACHE}/watchmenu-anime-list"
-    find "${TVSHOW_DIRS[@]}" -maxdepth 1 -mindepth 1 -type d \
-        | awk -F '/' '{print $NF}' \
-        | sort > "${WATCHMENU_CACHE}/watchmenu-tvshows-list"
-    find "${MOVIE_DIRS[@]}" -maxdepth 1 -mindepth 1 \
-        | awk -F '/' '{print $NF}' \
-        | sort > "${WATCHMENU_CACHE}/watchmenu-movies-list"
-    find "${VIDEO_DIRS[@]}" -maxdepth 1 -mindepth 1 -type f -exec file -N -i -- {} + \
-        | grep "video" \
-        | awk -F ':' '{print $1}' \
-        | awk -F '/' '{print $NF}' \
-        | sort > "${WATCHMENU_CACHE}/watchmenu-videos-list"
+    echo "Category to update: $1"
+    case "$1" in
+    anime )
+        find "${ANIME_DIRS[@]}" -maxdepth 1 -mindepth 1 -type d  2>/dev/null \
+            | awk -F '/' '{print $NF}' \
+            | sort > "${WATCHMENU_CACHE}/watchmenu-anime-list"
+            ;;
+    tvshows )
+        find "${TVSHOW_DIRS[@]}" -maxdepth 1 -mindepth 1 -type d \
+            | awk -F '/' '{print $NF}' \
+            | sort > "${WATCHMENU_CACHE}/watchmenu-tvshows-list"
+            ;;
+    movies )
+        find "${MOVIE_DIRS[@]}" -maxdepth 1 -mindepth 1 \
+            | awk -F '/' '{print $NF}' \
+            | sort > "${WATCHMENU_CACHE}/watchmenu-movies-list"
+            ;;
+    videos )
+        find "${VIDEO_DIRS[@]}" -maxdepth 1 -mindepth 1 -type f -exec file -N -i -- {} + \
+            | grep "video" \
+            | awk -F ':' '{print $1}' \
+            | awk -F '/' '{print $NF}' \
+            | sort > "${WATCHMENU_CACHE}/watchmenu-videos-list"
+            ;;
+    esac
+    
     cat "${WATCHMENU_CACHE}/watchmenu-anime-list" \
         "${WATCHMENU_CACHE}/watchmenu-movies-list" \
         "${WATCHMENU_CACHE}/watchmenu-tvshows-list" \
@@ -125,7 +137,41 @@ main () {
             ${video_player} "${LAST_PLAYED}" && main
             ;;
         :u | " Update")
-            update_list && main
+	    title=" Choose category"
+            options="$(printf " Cancel\n Back\n Update All\n話 Anime\n TV Shows\n Movies\n Videos")"
+
+            update_selection="$(${prompt} "${title}" < <(echo "${options}"))"
+
+            case "${update_selection}" in
+                :q | " Cancel" | "")
+                    exit
+                    ;;
+                :s)
+                    main
+                    ;;
+                :b | " Back")
+                    main
+                    ;;
+                " Update All")
+                    update_list anime
+                    update_list tvshows
+                    update_list movies
+                    update_list videos
+                    ;;
+                "話 Anime")
+                    update_list anime
+                    ;;
+                " TV Shows")
+                    update_list tvshows
+                    ;;
+                " Movies")
+                    update_list movies
+                    ;;
+                " Videos")
+                    update_list videos
+                    ;;
+            esac
+            main
             ;;
     esac
 
