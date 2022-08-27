@@ -105,7 +105,7 @@ update_list () {
             | sort > "${WATCHMENU_CACHE}/watchmenu-videos-list"
             ;;
     esac
-    
+
     cat "${WATCHMENU_CACHE}/watchmenu-anime-list" \
         "${WATCHMENU_CACHE}/watchmenu-movies-list" \
         "${WATCHMENU_CACHE}/watchmenu-tvshows-list" \
@@ -115,17 +115,48 @@ update_list () {
 
 # Main menu
 main () {
-    LAST_PLAYED="$(cat "${WATCHMENU_CACHE}/watchmenu-last-played" 2>/dev/null)"
-    LAST_PLAYED_NAME="$(awk -F '/' '{{ print ".../" $(NF-2) "/" $(NF-1) "/" $(NF) }}' 2>/dev/null < <(echo "${LAST_PLAYED}"))"
+    LAST_PLAYED="$(cat "${WATCHMENU_CACHE}/watchmenu-last-played" | sed -n '1p')"
+    LAST_PLAYED_NAME="$(cat "${WATCHMENU_CACHE}/watchmenu-last-played" | sed -n '2p')"
 
     title=" Search"
-    options="$(printf " Cancel\n神 Last Played (%s)\n Show All\n Help\n Update\n話 Anime\n TV Shows\n Movies\n Videos" "${LAST_PLAYED_NAME}")"
+    options="$(printf " Cancel\n神 Last Played [%s]\n Show All\n Help\n Update\n話 Anime\n TV Shows\n Movies\n Videos" "${LAST_PLAYED_NAME}")"
 
     # Request selection
     main_selection="$(${prompt} "${title}" < <(echo "${options}"))"
 
     echo "Search Query: ${main_selection}"
     case "${main_selection}" in
+        *youtube*watch?v=*)
+            id="$(awk -F '=' '{print $NF}' <<< ${main_selection})"
+            title="$(yt-dlp --no-warnings --print "  %(channel)s - %(title)s" "${id}")"
+            # title="$(yt-dlp --get-filename -o " : %(channel)s - %(title)s" "${id}" 2>/dev/null)"
+            ${video_player} "${main_selection}"
+
+            echo "${main_selection}" > "${WATCHMENU_CACHE}/watchmenu-last-played"
+            echo "${title}" >> "${WATCHMENU_CACHE}/watchmenu-last-played"
+            echo "Title: ${title}"
+            main
+            ;;
+        *youtu.be*)
+            id="$(awk -F '=' '{print $NF}' <<< ${main_selection})"
+            title="$(yt-dlp --no-warnings --print "  %(channel)s - %(title)s" "${id}")"
+            # title="$(yt-dlp --get-filename -o " : %(channel)s - %(title)s" "${id}" 2>/dev/null)"
+            ${video_player} "${main_selection}"
+
+            echo "${main_selection}" > "${WATCHMENU_CACHE}/watchmenu-last-played"
+            echo "${title}" >> "${WATCHMENU_CACHE}/watchmenu-last-played"
+            echo "Title: ${title}"
+            main
+            ;;
+        *youtube*playlist?list=*)
+            title="$(yt-dlp --no-warnings -I 1:1,1 --print "   %(playlist_uploader)s - %(playlist_title)s" "${main_selection}")"
+            ${video_player} "${main_selection}"
+
+            echo "${main_selection}" > "${WATCHMENU_CACHE}/watchmenu-last-played"
+            echo "${title}" >> "${WATCHMENU_CACHE}/watchmenu-last-played"
+            echo "Title: ${title}"
+            main
+            ;;
         :q* | " Cancel")
             exit
             ;;
@@ -137,7 +168,7 @@ main () {
             ${video_player} "${LAST_PLAYED}" && main
             ;;
         :u | " Update")
-	    title=" Choose category"
+            title=" Choose category"
             options="$(printf " Cancel\n Back\n Update All\n話 Anime\n TV Shows\n Movies\n Videos")"
 
             update_selection="$(${prompt} "${title}" < <(echo "${options}"))"
@@ -243,7 +274,9 @@ search_results () {
             ;;
         " Play All")
             echo "${VIDEO_DIRS[@]}" > "${WATCHMENU_CACHE}/watchmenu-last-played"
+            echo "$(awk -F '/' '{print  ".../" $(NF-2) "/" $(NF-1) "/" $(NF)}' < <(cat "${WATCHMENU_CACHE}/watchmenu-last-played"))" >> "${WATCHMENU_CACHE}/watchmenu-last-played"
             ${video_player} "${VIDEO_DIRS[@]}"
+            
             search_results
             ;;
         " Cancel")
@@ -255,7 +288,9 @@ search_results () {
     file_path="$(abs_dir "${selection}")"
     if [ "$(file -bi "${file_path}" | grep -o "video")" == "video" ]; then
         echo "${file_path}" > "${WATCHMENU_CACHE}/watchmenu-last-played"
+        echo "$(awk -F '/' '{print  ".../" $(NF-2) "/" $(NF-1) "/" $(NF)}' < <(cat "${WATCHMENU_CACHE}/watchmenu-last-played"))" >> "${WATCHMENU_CACHE}/watchmenu-last-played"
         ${video_player} "${file_path}"
+        
         search_results
     fi
 
@@ -314,7 +349,9 @@ season_list () {
     case "${season}" in
         " Play All")
             echo "${show_dir}" > "${WATCHMENU_CACHE}/watchmenu-last-played"
+            echo "$(awk -F '/' '{print  ".../" $(NF-2) "/" $(NF-1) "/" $(NF)}' < <(cat "${WATCHMENU_CACHE}/watchmenu-last-played"))" >> "${WATCHMENU_CACHE}/watchmenu-last-played"
             ${video_player} "${show_dir}"
+            
             season_list
             ;;
         :s)
@@ -344,7 +381,9 @@ episode_list () {
             case "${movie}" in
                 " Play All")
                     echo "${season_dir}" > "${WATCHMENU_CACHE}/watchmenu-last-played"
+                    echo "$(awk -F '/' '{print  ".../" $(NF-2) "/" $(NF-1) "/" $(NF)}' < <(cat "${WATCHMENU_CACHE}/watchmenu-last-played"))" >> "${WATCHMENU_CACHE}/watchmenu-last-played"
                     ${video_player} "${season_dir}"
+                    
                     episode_list
                     ;;
                 :s)
@@ -371,7 +410,9 @@ episode_list () {
             case "${episode}" in
                 " Play All")
                     echo "${season_dir}" > "${WATCHMENU_CACHE}/watchmenu-last-played"
+                    echo "$(awk -F '/' '{print  ".../" $(NF-2) "/" $(NF-1) "/" $(NF)}' < <(cat "${WATCHMENU_CACHE}/watchmenu-last-played"))" >> "${WATCHMENU_CACHE}/watchmenu-last-played"
                     ${video_player} "${season_dir}"
+                    
                     episode_list
                     ;;
                 :s)
@@ -389,11 +430,12 @@ episode_list () {
 
     echo "File path: ${file_path}"
     echo "${file_path}" > "${WATCHMENU_CACHE}/watchmenu-last-played"
+    echo "$(awk -F '/' '{print  ".../" $(NF-2) "/" $(NF-1) "/" $(NF)}' < <(cat "${WATCHMENU_CACHE}/watchmenu-last-played"))" >> "${WATCHMENU_CACHE}/watchmenu-last-played"
 
-    [[ -n "${DISPLAY}" ]] && ${video_player} "${file_path}"
+    ${video_player} "${file_path}"
+    
     episode_list
 }
 
-while true; do
-    main
-done
+main
+
