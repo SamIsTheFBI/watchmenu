@@ -5,6 +5,7 @@ A little dmenu script to watch your downloaded TV shows, movies and anime in sty
 - dmenu/rofi/fzf
 - mpv
 - awk
+- grep
 - Your media library
 - rclone (very optional) (for cloud access)
 
