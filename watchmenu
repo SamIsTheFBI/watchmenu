@@ -259,9 +259,7 @@ search_results () {
             ;;
         *)
             title="Choose"
-            options="$(printf " Cancel\n Back\n%s" "$(find "${ANIME_DIRS[@]}" "${TVSHOW_DIRS[@]}" "${MOVIE_DIRS[@]}" "${VIDEO_DIRS[@]}" -mindepth 1 -maxdepth 1 -iname "*${main_selection}*" 2>/dev/null \
-                | sort \
-                | awk -F '/' '{ print $NF }')")"
+            options="$(printf " Cancel\n Back\n$(cat "${WATCHMENU_CACHE}/watchmenu-all-list" | grep -i "${main_selection}" | sort)")"
             ;;
     esac
 
@@ -436,6 +434,12 @@ episode_list () {
     
     episode_list
 }
+
+# Uncomment update_list functions to automatically update any or all lists each time you run the script
+# update_list anime
+# update_list tvshows
+# update_list movies
+# update_list videos
 
 main
 
