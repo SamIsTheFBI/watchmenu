@@ -26,7 +26,7 @@ case "${WATCHMENU_PROMPT}" in
         ;;
 esac
 
-# Select plater
+# Select player
 case "${VIDEO_PLAYER}" in
     mpv | "")
         video_player="mpv --fs --save-position-on-quit --no-keepaspect-window"
@@ -98,12 +98,23 @@ update_list () {
             | sort > "${WATCHMENU_CACHE}/watchmenu-movies-list"
             ;;
     videos )
-        find "${VIDEO_DIRS[@]}" -maxdepth 1 -mindepth 1 -type f -exec file -N -i -- {} + \
-            | grep "video" \
-            | awk -F ':' '{print $1}' \
+        find "${VIDEO_DIRS[@]}" -maxdepth 1 -mindepth 1 -type f \
+            -name "*.mp4" -o -name "*.mkv" -o -name "*.avi" \
+            -name "*.ogv" -o -name "*.webm" -o -name "*.rmvb" \
+            -name "*.flv" -o -name "*.wmv" -o -name "*.mpeg" \
+            -name "*.mpg" -o -name "*.m4v" -o -name "*.3gp" \
             | awk -F '/' '{print $NF}' \
             | sort > "${WATCHMENU_CACHE}/watchmenu-videos-list"
+        find "${VIDEO_DIRS[@]}" -maxdepth 1 -mindepth 1 -type f \
+            -name "*.mp4" -o -name "*.mkv" -o -name "*.avi" \
+            -name "*.ogv" -o -name "*.webm" -o -name "*.rmvb" \
+            -name "*.flv" -o -name "*.wmv" -o -name "*.mpeg" \
+            -name "*.mpg" -o -name "*.m4v" -o -name "*.3gp" \
+            | awk -F '/' '{print $NF"<->"$0}' \
+            | sort \
+            | awk -F '<->' '{print $NF}' > "${WATCHMENU_CACHE}/watchmenu-videos-paths"
             ;;
+
     esac
 
     cat "${WATCHMENU_CACHE}/watchmenu-anime-list" \
@@ -113,13 +124,47 @@ update_list () {
         | sort > ${WATCHMENU_CACHE}/watchmenu-all-list
 }
 
+watch_history () {
+    title=" Watch History"
+    options="$(printf " Cancel\n Back\n Clear Watch History\n$(tac "${WATCHMENU_CACHE}/watchmenu-watch-history" | awk -F '<==>' '{print $1}')")"
+
+    watch_history_sel="$(${prompt} "${title}" < <(echo "${options}"))"
+    echo Watch History selection : "${watch_history_sel}"
+    grep_pattern="$(echo "${watch_history_sel}" | sed -r 's/\[/\\\[/g' | sed -r 's/\]/\\\]/g' )"
+    echo GREP Pattern : "${grep_pattern}"
+    file_path="$(cat "${WATCHMENU_CACHE}/watchmenu-watch-history" | grep -i "${grep_pattern}" | awk -F '<==>' '{print $NF}')"
+    echo File Path : "${file_path}"
+
+    case "${watch_history_sel}" in
+      :q | " Cancel") 
+        exit
+        ;;
+      :s | :b | " Back") 
+        main
+        ;;
+      " Clear Watch History")
+        rm -rf "${WATCHMENU_CACHE}/watchmenu-watch-history"
+        ;;
+      " Videos")
+        ${video_player} --playlist="${LAST_PLAYED_PATH}"
+        main
+        ;;
+      *) 
+        pos="$(cat "${WATCHMENU_CACHE}/watchmenu-watch-history" | grep -n "${grep_pattern}" | awk -F ':' '{print $1}' )"
+        [ ! -z "$pos" ] && sed -ir "$pos"d "${WATCHMENU_CACHE}/watchmenu-watch-history"
+        echo "${watch_history_sel}<==>${file_path}" >> "${WATCHMENU_CACHE}/watchmenu-watch-history"
+        ${video_player} "${file_path}"
+        ;;
+    esac
+}
+
 # Main menu
 main () {
-    LAST_PLAYED="$(cat "${WATCHMENU_CACHE}/watchmenu-last-played" | sed -n '1p')"
-    LAST_PLAYED_NAME="$(cat "${WATCHMENU_CACHE}/watchmenu-last-played" | sed -n '2p')"
+    LAST_PLAYED_NAME="$(tac "${WATCHMENU_CACHE}/watchmenu-watch-history" | awk -F '<==>' '{print $1}'  | sed -n '1p')"
+    LAST_PLAYED_PATH="$(tac "${WATCHMENU_CACHE}/watchmenu-watch-history" | awk -F '<==>' '{print $NF}' | sed -n '1p')"
 
     title=" Search"
-    options="$(printf " Cancel\n神 Last Played [%s]\n Show All\n Help\n Update\n話 Anime\n TV Shows\n Movies\n Videos" "${LAST_PLAYED_NAME}")"
+    options="$(printf " Cancel\n神 Last Played [%s]\n Watch History\n Show All\n Help\n Update\n話 Anime\n TV Shows\n Movies\n Videos" "${LAST_PLAYED_NAME}")"
 
     # Request selection
     main_selection="$(${prompt} "${title}" < <(echo "${options}"))"
@@ -132,8 +177,10 @@ main () {
             # title="$(yt-dlp --get-filename -o " : %(channel)s - %(title)s" "${id}" 2>/dev/null)"
             ${video_player} "${main_selection}"
 
-            echo "${main_selection}" > "${WATCHMENU_CACHE}/watchmenu-last-played"
-            echo "${title}" >> "${WATCHMENU_CACHE}/watchmenu-last-played"
+            grep_pattern="$(echo "${main_selection}" | sed -r 's/\[/\\\[/g' | sed -r 's/\]/\\\]/g' )"
+            pos="$(cat "${WATCHMENU_CACHE}/watchmenu-watch-history" | grep -n "${grep_pattern}" | awk -F ':' '{print $1}' )"
+            [ ! -z "$pos" ] && sed -ir "$pos"d "${WATCHMENU_CACHE}/watchmenu-watch-history"
+            echo "${title}<==>${main_selection}" >> "${WATCHMENU_CACHE}/watchmenu-watch-history"
             echo "Title: ${title}"
             main
             ;;
@@ -143,8 +190,10 @@ main () {
             # title="$(yt-dlp --get-filename -o " : %(channel)s - %(title)s" "${id}" 2>/dev/null)"
             ${video_player} "${main_selection}"
 
-            echo "${main_selection}" > "${WATCHMENU_CACHE}/watchmenu-last-played"
-            echo "${title}" >> "${WATCHMENU_CACHE}/watchmenu-last-played"
+            grep_pattern="$(echo "${main_selection}" | sed -r 's/\[/\\\[/g' | sed -r 's/\]/\\\]/g' )"
+            pos="$(cat "${WATCHMENU_CACHE}/watchmenu-watch-history" | grep -n "${grep_pattern}" | awk -F ':' '{print $1}' )"
+            [ ! -z "$pos" ] && sed -ir "$pos"d "${WATCHMENU_CACHE}/watchmenu-watch-history"
+            echo "${title}<==>${main_selection}" >> "${WATCHMENU_CACHE}/watchmenu-watch-history"
             echo "Title: ${title}"
             main
             ;;
@@ -152,8 +201,10 @@ main () {
             title="$(yt-dlp --no-warnings -I 1:1,1 --print "   %(playlist_uploader)s - %(playlist_title)s" "${main_selection}")"
             ${video_player} "${main_selection}"
 
-            echo "${main_selection}" > "${WATCHMENU_CACHE}/watchmenu-last-played"
-            echo "${title}" >> "${WATCHMENU_CACHE}/watchmenu-last-played"
+            grep_pattern="$(echo "${main_selection}" | sed -r 's/\[/\\\[/g' | sed -r 's/\]/\\\]/g' )"
+            pos="$(cat "${WATCHMENU_CACHE}/watchmenu-watch-history" | grep -n "${grep_pattern}" | awk -F ':' '{print $1}' )"
+            [ ! -z "$pos" ] && sed -ir "$pos"d "${WATCHMENU_CACHE}/watchmenu-watch-history"
+            echo "${title}<==>${main_selection}" >> "${WATCHMENU_CACHE}/watchmenu-watch-history"
             echo "Title: ${title}"
             main
             ;;
@@ -164,8 +215,24 @@ main () {
             help
             ;;
         *"神 Last Played"*)
-            [ ! -f "${WATCHMENU_CACHE}/watchmenu-last-played" ] && notify-send -t 2000 "" "No record of last played items" && main
-            ${video_player} "${LAST_PLAYED}" && main
+            echo "${LAST_PLAYED_NAME}"
+            case "${LAST_PLAYED_NAME}" in
+              " Videos")
+                  ${video_player} --playlist="${LAST_PLAYED_PATH}"
+                  main
+                  ;;
+              '')
+                  notify-send -t 2000 "" "No record of last played items"
+                  main
+                  ;;
+              *) 
+                  ${video_player} "${LAST_PLAYED_PATH}"
+                  main
+                  ;;
+            esac
+            ;;
+        " Watch History")
+            watch_history && main
             ;;
         :u | " Update")
             title=" Choose category"
@@ -259,7 +326,8 @@ search_results () {
             ;;
         *)
             title="Choose"
-            options="$(printf " Cancel\n Back\n$(cat "${WATCHMENU_CACHE}/watchmenu-all-list" | grep -i "${main_selection}" | sort)")"
+            grep_pattern="$(echo "${main_selection}" | sed -r 's/\[/\\\[/g' | sed -r 's/\]/\\\]/g' )"
+            options="$(printf " Cancel\n Back\n$(cat "${WATCHMENU_CACHE}/watchmenu-all-list" | grep -i "${grep_pattern}" | sort )")"
             ;;
     esac
 
@@ -270,10 +338,11 @@ search_results () {
         "" | " Videos")
             exit
             ;;
-        " Play All")
-            echo "${VIDEO_DIRS[@]}" > "${WATCHMENU_CACHE}/watchmenu-last-played"
-            echo "$(awk -F '/' '{print  ".../" $(NF-2) "/" $(NF-1) "/" $(NF)}' < <(cat "${WATCHMENU_CACHE}/watchmenu-last-played"))" >> "${WATCHMENU_CACHE}/watchmenu-last-played"
-            ${video_player} "${VIDEO_DIRS[@]}"
+        " Play All") 
+            pos="$(cat "${WATCHMENU_CACHE}/watchmenu-watch-history" | grep -n "${WATCHMENU_CACHE}/watchmenu-videos-paths" | awk -F ':' '{print $1}' )"
+            [ ! -z "$pos" ] && sed -ir "$pos"d "${WATCHMENU_CACHE}/watchmenu-watch-history"
+            echo " Videos<==>${WATCHMENU_CACHE}/watchmenu-videos-paths" >> "${WATCHMENU_CACHE}/watchmenu-watch-history"
+            ${video_player} --playlist="${WATCHMENU_CACHE}/watchmenu-videos-paths"
             
             search_results
             ;;
@@ -285,8 +354,11 @@ search_results () {
     # If chosen option is a video file - get its absolute path and play it
     file_path="$(abs_dir "${selection}")"
     if [ "$(file -bi "${file_path}" | grep -o "video")" == "video" ]; then
-        echo "${file_path}" > "${WATCHMENU_CACHE}/watchmenu-last-played"
-        echo "$(awk -F '/' '{print  ".../" $(NF-2) "/" $(NF-1) "/" $(NF)}' < <(cat "${WATCHMENU_CACHE}/watchmenu-last-played"))" >> "${WATCHMENU_CACHE}/watchmenu-last-played"
+        title="$(awk -F '/' '{print  ".../" $(NF-2) "/" $(NF-1) "/" $(NF)}' < <(echo "${file_path}"))"
+        grep_pattern="$(echo "${file_path}" | sed -r 's/\[/\\\[/g' | sed -r 's/\]/\\\]/g' )"
+        pos="$(cat "${WATCHMENU_CACHE}/watchmenu-watch-history" | grep -n "${grep_pattern}" | awk -F ':' '{print $1}' )"
+        [ ! -z "$pos" ] && sed -ir "$pos"d "${WATCHMENU_CACHE}/watchmenu-watch-history"
+        echo "${title}<==>${file_path}" >> "${WATCHMENU_CACHE}/watchmenu-watch-history"
         ${video_player} "${file_path}"
         
         search_results
@@ -346,8 +418,11 @@ season_list () {
 
     case "${season}" in
         " Play All")
-            echo "${show_dir}" > "${WATCHMENU_CACHE}/watchmenu-last-played"
-            echo "$(awk -F '/' '{print  ".../" $(NF-2) "/" $(NF-1) "/" $(NF)}' < <(cat "${WATCHMENU_CACHE}/watchmenu-last-played"))" >> "${WATCHMENU_CACHE}/watchmenu-last-played"
+            grep_pattern="$(echo "${show_dir}" | sed -r 's/\[/\\\[/g' | sed -r 's/\]/\\\]/g' )"
+            pos="$(cat "${WATCHMENU_CACHE}/watchmenu-watch-history" | grep -n "${grep_pattern}" | awk -F ':' '{print $1}' )"
+            [ ! -z "$pos" ] && sed -ir "$pos"d "${WATCHMENU_CACHE}/watchmenu-watch-history"
+            title="$(awk -F '/' '{print  ".../" $(NF-2) "/" $(NF-1) "/" $(NF)}' < <(echo "${show_dir}"))"
+            echo "${title}<==>${show_dir}" >> "${WATCHMENU_CACHE}/watchmenu-watch-history"
             ${video_player} "${show_dir}"
             
             season_list
@@ -378,8 +453,11 @@ episode_list () {
 
             case "${movie}" in
                 " Play All")
-                    echo "${season_dir}" > "${WATCHMENU_CACHE}/watchmenu-last-played"
-                    echo "$(awk -F '/' '{print  ".../" $(NF-2) "/" $(NF-1) "/" $(NF)}' < <(cat "${WATCHMENU_CACHE}/watchmenu-last-played"))" >> "${WATCHMENU_CACHE}/watchmenu-last-played"
+                    grep_pattern="$(echo "${season_dir}" | sed -r 's/\[/\\\[/g' | sed -r 's/\]/\\\]/g' )"
+                    pos="$(cat "${WATCHMENU_CACHE}/watchmenu-watch-history" | grep -n "${grep_pattern}" | awk -F ':' '{print $1}' )"
+                    [ ! -z "$pos" ] && sed -ir "$pos"d "${WATCHMENU_CACHE}/watchmenu-watch-history"
+                    title="$(awk -F '/' '{print  ".../" $(NF-2) "/" $(NF-1) "/" $(NF)}' < <(echo "${season_dir}"))"
+                    echo "${title}<==>${season_dir}" >> "${WATCHMENU_CACHE}/watchmenu-watch-history"
                     ${video_player} "${season_dir}"
                     
                     episode_list
@@ -407,8 +485,11 @@ episode_list () {
 
             case "${episode}" in
                 " Play All")
-                    echo "${season_dir}" > "${WATCHMENU_CACHE}/watchmenu-last-played"
-                    echo "$(awk -F '/' '{print  ".../" $(NF-2) "/" $(NF-1) "/" $(NF)}' < <(cat "${WATCHMENU_CACHE}/watchmenu-last-played"))" >> "${WATCHMENU_CACHE}/watchmenu-last-played"
+                    grep_pattern="$(echo "${season_dir}" | sed -r 's/\[/\\\[/g' | sed -r 's/\]/\\\]/g' )"
+                    pos="$(cat "${WATCHMENU_CACHE}/watchmenu-watch-history" | grep -n "${grep_pattern}" | awk -F ':' '{print $1}' )"
+                    [ ! -z "$pos" ] && sed -ir "$pos"d "${WATCHMENU_CACHE}/watchmenu-watch-history"
+                    title="$(awk -F '/' '{print  ".../" $(NF-2) "/" $(NF-1) "/" $(NF)}' < <(echo "${season_dir}"))"
+                    echo "${title}<==>${season_dir}" >> "${WATCHMENU_CACHE}/watchmenu-watch-history"
                     ${video_player} "${season_dir}"
                     
                     episode_list
@@ -427,8 +508,11 @@ episode_list () {
     esac
 
     echo "File path: ${file_path}"
-    echo "${file_path}" > "${WATCHMENU_CACHE}/watchmenu-last-played"
-    echo "$(awk -F '/' '{print  ".../" $(NF-2) "/" $(NF-1) "/" $(NF)}' < <(cat "${WATCHMENU_CACHE}/watchmenu-last-played"))" >> "${WATCHMENU_CACHE}/watchmenu-last-played"
+    grep_pattern="$(echo "${file_path}" | sed -r 's/\[/\\\[/g' | sed -r 's/\]/\\\]/g' )"
+    pos="$(cat "${WATCHMENU_CACHE}/watchmenu-watch-history" | grep -n "${grep_pattern}" | awk -F ':' '{print $1}' )"
+    [ ! -z "$pos" ] && sed -ir "$pos"d "${WATCHMENU_CACHE}/watchmenu-watch-history"
+    title="$(awk -F '/' '{print  ".../" $(NF-2) "/" $(NF-1) "/" $(NF)}' < <(echo "${file_path}"))"
+    echo "${title}<==>${file_path}" >> "${WATCHMENU_CACHE}/watchmenu-watch-history"
 
     ${video_player} "${file_path}"
     
@@ -442,4 +526,3 @@ episode_list () {
 # update_list videos
 
 main
-
