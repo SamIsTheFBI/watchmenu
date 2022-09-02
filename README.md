@@ -43,4 +43,4 @@ You are supposed to use the directory structure that Plex, Jellyfin and such med
 ## Purpose behind making this
 In my honest opinion, the UI for Plex on Linux sucks. There is a subtle difference in the appearance between Windows and Linux versions, and that annoys me way more than it should. True I could open a browser and Plex would still look same as Windows' version but that's such a sucky way. Shouldn't I be using other media servers then? Jellyfin's UI is clanky as ever, Kodi can't properly arrange Monogatari seasons, I don't want to use Docker and furthermore, they all are heavy on my laptop and take up a lot of space which I could've used for more movies. I tried out [dmenufm](https://github.com/huijunchen9260/dmenufm), it's cool and all but navigation was a hassle.
 
-Hence this script. Simple script that just does the work.
+Hence this script. Single script that just does the work.
