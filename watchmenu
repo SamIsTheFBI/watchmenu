@@ -203,6 +203,15 @@ main () {
             echo "Title: ${title}"
             main
             ;;
+        http*mp4* | http*webm* | http*mkv* | http*cdn*)
+            ${video_player} "${main_selection}"
+            
+            title="$(echo "${main_selection}" | awk -F '/' '{print $NF}')"
+            var="${title}<==>${main_selection}"
+            [[ "${var}" == "$(sed -n '$p' "${WATCHMENU_CACHE}/watchmenu-watch-history")" ]] && sed -ir '$d' "${WATCHMENU_CACHE}/watchmenu-watch-history"
+            echo "${title}<==>${main_selection}" >> "${WATCHMENU_CACHE}/watchmenu-watch-history"
+            main
+            ;;
         :q* | " Cancel")
             exit
             ;;
@@ -264,6 +273,19 @@ main () {
                     update_list videos
                     ;;
             esac
+            main
+            ;;
+        /* | ~*)
+            if [[ -e "${main_selection}" ]]; then
+              ${video_player} "${main_selection}"
+              
+              title="$(echo "${main_selection}" | awk -F '/' '{print $NF}')"
+              var="${title}<==>${main_selection}"
+              [[ "${var}" == "$(sed -n '$p' "${WATCHMENU_CACHE}/watchmenu-watch-history")" ]] && sed -ir '$d' "${WATCHMENU_CACHE}/watchmenu-watch-history"
+              echo "${title}<==>${main_selection}" >> "${WATCHMENU_CACHE}/watchmenu-watch-history"
+            else
+              notify-send -t 2000 " Error" "Could not find what you're looking for\!"
+            fi
             main
             ;;
     esac
