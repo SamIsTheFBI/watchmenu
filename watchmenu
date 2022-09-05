@@ -408,8 +408,19 @@ search_results () {
 
 # Choose season directory
 season_list () {
-    case "${show_dir}" in
-        */Movie*)
+    dir1="$(echo "${show_dir}" | awk -F '/' '{print $NF}' )"
+    echo "Dir: $dir1"
+    dir_type="$(echo "${show_dir}" | sed "s/${dir1}//g" | sed 's/.$//g' )"
+    echo "Dir type: $dir_type"
+
+    for VAR in "${MOVIE_DIRS[@]}"
+    do
+      [[ "${VAR}" == "${dir_type}" ]] && dir_type='MOVIE' && break
+    done
+    echo "Directory Type: ${dir_type}"
+
+    case "${dir_type}" in
+        MOVIE)
             # This will skip to episode_list
             season="NONE"
             season_dir="${show_dir}"
