@@ -126,7 +126,7 @@ update_list () {
 
 search_youtube_vid () {
     title=" Search YouTube Videos "
-    options=$( echo -e " Cancel\n Back\n$(tac "${WATCHMENU_CACHE}/watchmenu-watch-history" | grep "^ " | awk -F '<==>' '{print $1}' )" )
+    options=$( echo -e " Cancel\n Back\n$(tac "${WATCHMENU_CACHE}/watchmenu-watch-history" | grep "^ " | awk -F '<==>' '{print $1}' | awk '!seen[$0]++' )" )
 
     query="$(${prompt} "${title}" < <(echo "${options}"))"
 
@@ -175,7 +175,10 @@ search_youtube_vid () {
             ;;
           *)
             if [ ! -z "${title}" ]; then
-                url="$(cat "${WATCHMENU_CACHE}/youtube-search-results" | grep -i "$title" | sed -n '1p' | awk -F '<==>' '{print $NF}')"
+                grep_pattern="$(echo "${title}" | sed -r 's/\[/\\\[/g' | sed -r 's/\]/\\\]/g' )"
+
+                url="$(cat "${WATCHMENU_CACHE}/youtube-search-results" | grep -i "$grep_pattern" | sed -n '1p' | awk -F '<==>' '{print $NF}')"
+
                 var="${title}<==>${url}"
 
                 [[ "${var}" != "$(sed -n '$p' "${WATCHMENU_CACHE}/watchmenu-watch-history")" ]] && \
