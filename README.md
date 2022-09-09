@@ -8,7 +8,7 @@ A little dmenu script to watch your downloaded TV shows, movies and anime in sty
 - awk
 - grep
 - your media library
-- your YouTube API key (optional) (for searching YouTube videos)
+- your YouTube API key (for searching YouTube videos/playlist)
 - rclone (very optional) (for cloud access)
 
 https://user-images.githubusercontent.com/70562711/179566428-4dc1dd8f-65ac-4c8b-a531-3849545fbb5a.mp4
@@ -33,11 +33,13 @@ Note: You can set `WATCHMENU_PROMPT` in environment variables to change prompt t
 | `Ctrl` + `Enter`  | Ignore the selection and search for the term you typed (rofi)    |
 | `Alt` + `Enter`   | Ignore the selection and search for the term you typed (fzf)     |
 
-## For YouTube Video Search feature
+## For YouTube Video & Playlist Search feature
 
-Copy your YouTube API key and paste it in `${HOME}/.api_keys/YT_API_KEY` or set it as the environment variable `YT_API_KEY`. Check this [tutorial](https://elfsight.com/blog/2016/12/how-to-get-youtube-api-key-tutorial/) for it.
+Copy your YouTube API key and paste it in a file `${HOME}/.api_keys/YT_API_KEY` or set it as the environment variable `YT_API_KEY`. Check this [tutorial](https://elfsight.com/blog/2016/12/how-to-get-youtube-api-key-tutorial/) for it.
 
-With this you should be able to search YouTube videos and play them using watchmenu. 
+With this you should be able to search YouTube videos/playlists and play them using watchmenu.
+
+**`Note:`** Some YouTube playlists may not work unless you choose to extract video links from it. Thus there is a prompt when playing a YouTube playlist, asking the user to either extract video links or continue without doing so.
 
 ## Directory Structure
 
