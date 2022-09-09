@@ -124,6 +124,40 @@ update_list () {
         | sort > ${WATCHMENU_CACHE}/watchmenu-all-list
 }
 
+# Check if movie or tv show directory 
+check_dir () {
+    dir1="$(echo "${show_dir}" | awk -F '/' '{print $NF}' )"
+    echo "Selected: $dir1"
+    dir_type="$(echo "${show_dir}" | sed "s/${dir1}//g" | sed 's/.$//g' )"
+    echo "From: ${dir_type}"
+
+    for i in "${MOVIE_DIRS[@]}"
+    do
+      [[ "${i}" == "${dir_type}" ]] && dir_type='MOVIE' && break
+    done
+}
+
+# Add to Watch History
+add_to_hist () {
+    entry="${1}"
+    if [ ! -z "${entry}" ]; then
+        echo "Entry: ${entry}"
+        title="$(echo "${entry}" | awk -F '<==>' '{print $1}' )"
+        [[ "${title}" != "$(sed -n '$p' "${WATCHMENU_CACHE}/watchmenu-watch-history" | awk -F '<==>' '{print $1}' )" ]] && \
+        echo "${entry}" >> "${WATCHMENU_CACHE}/watchmenu-watch-history" 
+        echo "Added entry to watch history"
+    fi
+}
+
+# Make grep pattern
+grepFunc () {
+  grep_pattern="$(echo "${1}" | \
+    sed -r 's/\[/\\\[/g' | \
+    sed -r 's/\]/\\\]/g' )"
+  echo "Grep Pattern: ${grep_pattern}"
+}
+
+# Search YouTube Video
 search_youtube_vid () {
     title=" Search YouTube Videos "
     options=$( echo -e " Cancel\n Back\n$(tac "${WATCHMENU_CACHE}/watchmenu-watch-history" | grep "^ " | awk -F '<==>' '{print $1}' | awk '!seen[$0]++' )" )
@@ -131,28 +165,27 @@ search_youtube_vid () {
     query="$(${prompt} "${title}" < <(echo "${options}"))"
 
     case "${query}" in
-      " Cancel")
+      :q | " Cancel")
         exit
         ;;
-      " Back")
+      :b | :s | " Back")
         main
         ;;
        *)
-        var="$(tac "${WATCHMENU_CACHE}/watchmenu-watch-history" | grep "${query}" | sed -n '1p')"
-        url="$(echo ${var} | awk -F '<==>' '{print $NF}' )"
-        echo "YT URL: ${url}"
-        [[ "${var}" != "$(sed -n '$p' "${WATCHMENU_CACHE}/watchmenu-watch-history")" ]] && \
-        echo "${var}" >> "${WATCHMENU_CACHE}/watchmenu-watch-history"
+        grepFunc "${query}"
+
+        entry="$(cat "${WATCHMENU_CACHE}/watchmenu-watch-history" | grep "${grep_pattern}" | sed -n '1p')"
+        url="$(echo ${entry} | awk -F '<==>' '{print $2}' )"
         
         ${video_player} "${url}"
-        search_youtube_vid
+        add_to_hist "${entry}"
         ;;
       '')
         exit
         ;;
-      *) # Taken from Bugswriter's myyt script
+      *)
         query="${query// /+}"
-        YT_API_KEY="$( cat "${HOME}"/.api_keys/YT_API_KEY )"
+        [ -z "${YT_API_KEY}" ] && YT_API_KEY="$( cat "${HOME}"/.api_keys/YT_API_KEY )"
         urlstring="https://www.googleapis.com/youtube/v3/search?part=snippet&q=${query}&type=video&maxResults=20&key=${YT_API_KEY}"
 
         [ -e "${WATCHMENU_CACHE}/youtube-search-results" ] && \
@@ -165,51 +198,154 @@ search_youtube_vid () {
           | sed 's/&quot;/\"/g' | sed 's/&#34;/\"/g' >> "${WATCHMENU_CACHE}/youtube-search-results"
 
         title="$(cat "${WATCHMENU_CACHE}/youtube-search-results" | awk -F '<==>' '{print $1}' | ${prompt} "Select Video" )"
-        
+
         case "${title}" in
           :b) 
-            search_youtube_vid
             ;;
           :s)
             main
             ;;
           *)
             if [ ! -z "${title}" ]; then
-                grep_pattern="$(echo "${title}" | sed -r 's/\[/\\\[/g' | sed -r 's/\]/\\\]/g' )"
+                grepFunc "${title}"
 
-                url="$(cat "${WATCHMENU_CACHE}/youtube-search-results" | grep -i "$grep_pattern" | sed -n '1p' | awk -F '<==>' '{print $NF}')"
+                entry="$(cat "${WATCHMENU_CACHE}/youtube-search-results" | grep -i "$grep_pattern" | sed -n '1p')"
+                url="$(echo "${entry}" | awk -F '<==>' '{print $2}' )"
 
-                var="${title}<==>${url}"
-
-                [[ "${var}" != "$(sed -n '$p' "${WATCHMENU_CACHE}/watchmenu-watch-history")" ]] && \
-                  echo "${var}" >> "${WATCHMENU_CACHE}/watchmenu-watch-history" 
-                
                 ${video_player} "${url}"
-                
-                echo "Title: ${title}"
-                echo "URL: ${url}"
+                add_to_hist "${entry}"
             fi
-            search_youtube_vid
             ;;
         esac
-        
-	;;
+        ;;
     esac
+    search_youtube_vid
 }
 
+# Search YouTube Playlist
+search_youtube_playlist () {
+    title=" Search YouTube Playlists "
+    options=$( echo -e " Cancel\n Back\n$(tac "${WATCHMENU_CACHE}/watchmenu-watch-history" | grep "^ " | awk -F '<==>' '{print $1}' | awk '!seen[$0]++' )" )
+
+    query="$(${prompt} "${title}" < <(echo "${options}"))"
+
+    case "${query}" in
+      :q | " Cancel")
+        exit
+        ;;
+      :b | :s | " Back")
+        main
+        ;;
+       *)
+        grepFunc "${query}"
+
+        entry="$(cat "${WATCHMENU_CACHE}/watchmenu-watch-history" | grep "${grep_pattern}" | sed -n '1p')"
+        url="$(echo ${entry} | awk -F '<==>' '{print $2}' )"
+        entry_type="$(echo ${entry} | awk -F '<==>' '{print $3}' )"
+
+        [ "${entry_type}" == 'playlist_file' ] && \
+          ${video_player} --playlist="${url}" || ${video_player} "${url}"
+       
+        add_to_hist "${entry}"
+        search_youtube_playlist
+        ;;
+      '')
+        exit
+        ;;
+    esac
+
+    query="${query// /+}"
+    [ -z "${YT_API_KEY}" ] && YT_API_KEY="$( cat "${HOME}"/.api_keys/YT_API_KEY )"
+    urlstring="https://www.googleapis.com/youtube/v3/search?part=snippet&q=${query}&type=playlist&maxResults=20&key=${YT_API_KEY}"
+
+    [ -e "${WATCHMENU_CACHE}/youtube-search-results" ] && \
+      rm -rf "${WATCHMENU_CACHE}/youtube-search-results" || \
+      touch "${WATCHMENU_CACHE}/youtube-search-results"
+    
+    curl -s "${urlstring}" \
+      | jq -r '.items[] | "  \(.snippet.channelTitle) - \(.snippet.title)<==>https://www.youtube.com/playlist?list=\(.id.playlistId)"' \
+      | sed 's/&amp;/\&/g' | sed 's/&#38;/\&/g' \
+      | sed "s/&apos;/\'/g" | sed "s/&#39;/\'/g" \
+      | sed 's/&quot;/\"/g' | sed 's/&#34;/\"/g' >> "${WATCHMENU_CACHE}/youtube-search-results"
+
+    list_playlists
+}
+
+# List YouTube playlists
+list_playlists () {
+    title="$(cat "${WATCHMENU_CACHE}/youtube-search-results" | awk -F '<==>' '{print $1}' | ${prompt} "Select Playlist" )"
+
+    case "${title}" in
+      ":b" | "") 
+        ;;
+      ":s")
+        echo "To the main menu"
+        main
+        ;;
+      *)
+        if [ ! -z "${title}" ]; then
+            grepFunc "${title}"
+
+            entry="$(cat "${WATCHMENU_CACHE}/youtube-search-results" | grep -i "${grep_pattern}" | sed -n '1p')"
+            title="$(echo "${entry}"| awk -F '<==>' '{print $1}' )"
+            url="$(echo "${entry}"| awk -F '<==>' '{print $2}' )"
+
+            extract="$( echo -e "Yes\nNo" | ${prompt} "Extract Video links to play?" )"
+
+            case "${extract}" in
+              Yes) 
+                youtube_video_extract "${url}"
+                ${video_player} --playlist="${yturls}"
+                entry="${title}<==>${yturls}<==>playlist_file"
+                ;;
+              No) 
+                ${video_player} "${url}"
+                ;;
+              '' | :b)
+                list_playlists
+                ;;
+              :s)
+                main
+                ;;
+              :q)
+                exit
+                ;;
+            esac
+            add_to_hist "${entry}"
+        fi
+        ;;
+    esac
+    search_youtube_playlist
+}
+
+# Extract YouTube videos from playlist link using yt-dlp
+youtube_video_extract () {
+    playlisturl="${1}"
+    playlistId="$(echo "${playlisturl}" | awk -F '=' '{print $2}')"
+    echo "Playlist ID: ${playlistId}"
+    yturls="${WATCHMENU_CACHE}/yt_vid_extract/${playlistId}.m3u"
+    [ ! -d  "${WATCHMENU_CACHE}/yt_vid_extract" ] && mkdir -p "${WATCHMENU_CACHE}/yt_vid_extract"
+    if [ ! -f "${yturls}" ]; then
+      touch "${yturls}"
+      notify-send -r 309872 -t 4000 "" "Extracting video links to ${yturls}"
+      yt-dlp --no-flat-playlist --print "https://www.youtube.com/watch?v=%(id)s" "${playlisturl}" >> "${yturls}"
+    fi
+}
+
+# Watch History menu
 watch_history () {
     title=" Watch History"
     options="$(echo -e " Cancel\n Back\n Clear Watch History\n$(tac "${WATCHMENU_CACHE}/watchmenu-watch-history" | awk -F '<==>' '{print $1}')")"
-
     watch_history_sel="$(${prompt} "${title}" < <(echo "${options}"))"
-    echo Watch History selection : "${watch_history_sel}"
-    grep_pattern="$(echo "${watch_history_sel}" | sed -r 's/\[/\\\[/g' | sed -r 's/\]/\\\]/g' )"
-    echo GREP Pattern : "${grep_pattern}"
-    file_path="$(cat "${WATCHMENU_CACHE}/watchmenu-watch-history" | grep -i "${grep_pattern}" | sed -n '1p' | awk -F '<==>' '{print $NF}')"
-    echo File Path : "${file_path}"
+
+    grepFunc "${watch_history_sel}"
+    
+    entry="$(cat "${WATCHMENU_CACHE}/watchmenu-watch-history" | grep -i "${grep_pattern}" | sed -n '1p' )"
+    file_path="$(echo "${entry}" | awk -F '<==>' '{print $2}')"
+    entry_type="$( echo "${entry}" | awk -F '<==>' '{print $3}')" 
 
     case "${watch_history_sel}" in
-      :q | " Cancel") 
+      :q | " Cancel" | '') 
         exit
         ;;
       :s | :b | " Back") 
@@ -223,10 +359,12 @@ watch_history () {
         main
         ;;
       *) 
-        var="${watch_history_sel}<==>${file_path}"
-        [[ "${var}" != "$(sed -n '$p' "${WATCHMENU_CACHE}/watchmenu-watch-history")" ]] && \
-        echo "${var}" >> "${WATCHMENU_CACHE}/watchmenu-watch-history"
-        ${video_player} "${file_path}"
+        if [ "${entry_type}" == 'playlist_file' ]; then
+          ${video_player} --playlist="${file_path}"
+        else
+          ${video_player} "${file_path}"
+        fi
+        add_to_hist "${entry}" 
         ;;
     esac
 }
@@ -234,10 +372,10 @@ watch_history () {
 # Main menu
 main () {
     LAST_PLAYED_NAME="$(tac "${WATCHMENU_CACHE}/watchmenu-watch-history" | awk -F '<==>' '{print $1}'  | sed -n '1p')"
-    LAST_PLAYED_PATH="$(tac "${WATCHMENU_CACHE}/watchmenu-watch-history" | awk -F '<==>' '{print $NF}' | sed -n '1p')"
+    LAST_PLAYED_PATH="$(tac "${WATCHMENU_CACHE}/watchmenu-watch-history" | awk -F '<==>' '{print $2}' | sed -n '1p')"
 
     title=" Search"
-    options="$(echo -e " Cancel\n神 Last Played [${LAST_PLAYED_NAME}]\n Search YouTube Videos\n Watch History\n Show All\n Help\n Update\n話 Anime\n TV Shows\n Movies\n Videos" )"
+    options="$(echo -e " Cancel\n神 Last Played [${LAST_PLAYED_NAME}]\n Search YouTube Playlists\n Search YouTube Videos\n Watch History\n Show All\n Help\n Update\n話 Anime\n TV Shows\n Movies\n Videos" )"
 
     # Request selection
     main_selection="$(${prompt} "${title}" < <(echo "${options}"))"
@@ -247,48 +385,60 @@ main () {
         " Search YouTube Videos")
             search_youtube_vid
             ;;
+        " Search YouTube Playlists")
+            search_youtube_playlist
+            ;;
         *youtube*watch?v=*)
             id="$(awk -F '=' '{print $NF}' <<< ${main_selection})"
             title="$(yt-dlp --no-warnings --print "  %(channel)s - %(title)s" "${id}")"
-            ${video_player} "${main_selection}"
+            entry="${title}<==>${main_selection}"
 
-            var="${title}<==>${main_selection}"
-            [[ "${var}" != "$(sed -n '$p' "${WATCHMENU_CACHE}/watchmenu-watch-history")" ]] && \
-            echo "${var}" >> "${WATCHMENU_CACHE}/watchmenu-watch-history"
-            echo "Title: ${title}"
+            ${video_player} "${main_selection}"
+            add_to_hist "${entry}"
             main
             ;;
         *youtu.be*)
-            id="$(awk -F '=' '{print $NF}' <<< ${main_selection})"
+            id="$(awk -F '/' '{print $NF}' <<< ${main_selection})"
             title="$(yt-dlp --no-warnings --print "  %(channel)s - %(title)s" "${id}")"
-            ${video_player} "${main_selection}"
+            entry="${title}<==>${main_selection}"
 
-            var="${title}<==>${main_selection}"
-            [[ "${var}" != "$(sed -n '$p' "${WATCHMENU_CACHE}/watchmenu-watch-history")" ]] && \
-            echo "${var}" >> "${WATCHMENU_CACHE}/watchmenu-watch-history"
-            echo "Title: ${title}"
+            ${video_player} "${main_selection}"
+            add_to_hist "${entry}"
             main
             ;;
         *youtube*playlist?list=*)
-            title="$(yt-dlp --no-warnings -I 1:1,1 --print "   %(playlist_uploader)s - %(playlist_title)s" "${main_selection}")"
-            ${video_player} "${main_selection}"
+            title="$(yt-dlp --no-warnings -I 1:1,1 --print "  %(playlist_uploader)s - %(playlist_title)s" "${main_selection}")"
+            extract="$( echo -e "Yes\nNo" | ${prompt} "Extract Video links to play?" )"
 
-            var="${title}<==>${main_selection}"
-            [[ "${var}" != "$(sed -n '$p' "${WATCHMENU_CACHE}/watchmenu-watch-history")" ]] && \
-            echo "${var}" >> "${WATCHMENU_CACHE}/watchmenu-watch-history"
-            echo "Title: ${title}"
+            case "${extract}" in
+              Yes) 
+                youtube_video_extract "${main_selection}"
+                ${video_player} --playlist="${yturls}"
+                entry="${title}<==>${yturls}<==>playlist_file"
+                ;;
+              No) 
+                ${video_player} "${main_selection}"
+                entry="${title}<==>${main_selection}"
+                ;;
+              '' | :b | :s)
+                main
+                ;;
+              :q)
+                exit
+                ;;
+            esac
+            add_to_hist "${entry}"
             main
             ;;
         http*mp4* | http*webm* | http*mkv* | http*cdn*)
-            ${video_player} "${main_selection}"
-            
             title="$(echo "${main_selection}" | awk -F '/' '{print $NF}')"
-            var="${title}<==>${main_selection}"
-            [[ "${var}" != "$(sed -n '$p' "${WATCHMENU_CACHE}/watchmenu-watch-history")" ]] && \
-            echo "${var}" >> "${WATCHMENU_CACHE}/watchmenu-watch-history"
+            entry="${title}<==>${main_selection}"
+
+            ${video_player} "${main_selection}"      
+            add_to_hist "${entry}"
             main
             ;;
-        :q* | " Cancel")
+        :q* | " Cancel" | '')
             exit
             ;;
         :h | " Help")
@@ -302,11 +452,16 @@ main () {
                   main
                   ;;
               '')
-                  notify-send -t 2000 "" "No record of last played items"
+                  notify-send -r 309872 -t 2000 "" "No record of last played items"
                   main
                   ;;
               *) 
-                  ${video_player} "${LAST_PLAYED_PATH}"
+                  entry="$(tac "${WATCHMENU_CACHE}/watchmenu-watch-history" | sed -n '1p')"
+                  entry_type="$(echo ${entry} | awk -F '<==>' '{print $3}' )"
+
+                  [ "${entry_type}" == 'playlist_file' ] && \
+                    ${video_player} --playlist="${LAST_PLAYED_PATH}" || ${video_player} "${LAST_PLAYED_PATH}"
+       
                   main
                   ;;
             esac
@@ -321,7 +476,7 @@ main () {
             update_selection="$(${prompt} "${title}" < <(echo "${options}"))"
 
             case "${update_selection}" in
-                :q | " Cancel" | "")
+                :q | " Cancel" | '')
                     exit
                     ;;
                 :s)
@@ -353,14 +508,13 @@ main () {
             ;;
         /* | ~*)
             if [[ -e "${main_selection}" ]]; then
-              ${video_player} "${main_selection}"
-              
               title="$(echo "${main_selection}" | awk -F '/' '{print $NF}')"
-              var="${title}<==>${main_selection}"
-              [[ "${var}" != "$(sed -n '$p' "${WATCHMENU_CACHE}/watchmenu-watch-history")" ]] && \
-              echo "${var}" >> "${WATCHMENU_CACHE}/watchmenu-watch-history"
+              entry="${title}<==>${main_selection}"
+
+              ${video_player} "${main_selection}"
+              add_to_hist "${entry}"
             else
-              notify-send -t 2000 " Error" "Could not find what you're looking for\!"
+              notify-send -r 309872 -t 2000 " Error" "Could not find what you're looking for!"
             fi
             main
             ;;
@@ -374,7 +528,7 @@ abs_dir () {
     # Find $1 in different arrays of user specified directories. Not using -name flag to avoid problems with special characters.
     # Selecting every line related to $1 with `grep -F` (-F flag to select special characters as well)
     # and picking the first one with sed, since that's the root directory of $1.  
-    path="$(find "${VIDEO_DIRS[@]/%//${1}}" "${MOVIE_DIRS[@]/%//${1}}" "${ANIME_DIRS[@]/%//${1}}" "${TVSHOW_DIRS[@]/%//${1}}" -mindepth 0 -maxdepth 1 \
+    path="$(find "${VIDEO_DIRS[@]/%//${1}}" "${MOVIE_DIRS[@]/%//${1}}" "${ANIME_DIRS[@]/%//${1}}" "${TVSHOW_DIRS[@]/%//${1}}" -mindepth 0 -maxdepth 1 2>/dev/null \
                     | grep -F "$1" \
                     | sed -n '1p')"
 
@@ -419,7 +573,7 @@ search_results () {
             ;;
         *)
             title="Choose"
-            grep_pattern="$(echo "${main_selection}" | sed -r 's/\[/\\\[/g' | sed -r 's/\]/\\\]/g' )"
+            grepFunc "${main_selection}"
             options="$(printf " Cancel\n Back\n$(cat "${WATCHMENU_CACHE}/watchmenu-all-list" | grep -i "${grep_pattern}" | sort )")"
             ;;
     esac
@@ -428,19 +582,19 @@ search_results () {
     selection="$(${prompt} "${title}" < <(echo "${options}"))"
 
     case "${selection}" in
-        "" | " Videos")
-            exit
-            ;;
         " Play All") 
-            var=" Videos<==>${WATCHMENU_CACHE}/watchmenu-videos-paths"
-            [[ "${var}" != "$(sed -n '$p' "${WATCHMENU_CACHE}/watchmenu-watch-history")" ]] && \
-            echo "${var}" >> "${WATCHMENU_CACHE}/watchmenu-watch-history"
+            entry=" Videos<==>${WATCHMENU_CACHE}/watchmenu-videos-paths<==>playlist_file"
+
             ${video_player} --playlist="${WATCHMENU_CACHE}/watchmenu-videos-paths"
+            add_to_hist "${entry}"
             
             search_results
             ;;
-        " Cancel")
+        " Cancel" | :q | '')
             exit
+            ;;
+        " Back" | :b | :s)
+            main
             ;;
     esac
 
@@ -448,11 +602,10 @@ search_results () {
     file_path="$(abs_dir "${selection}")"
     if [ "$(file -bi "${file_path}" | grep -o "video")" == "video" ]; then
         title="$(awk -F '/' '{print  ".../" $(NF-2) "/" $(NF-1) "/" $(NF)}' < <(echo "${file_path}"))"
-        var="${title}<==>${file_path}"
-        [[ "${var}" != "$(sed -n '$p' "${WATCHMENU_CACHE}/watchmenu-watch-history")" ]] && \
-        echo "${var}" >> "${WATCHMENU_CACHE}/watchmenu-watch-history"
-        ${video_player} "${file_path}"
+        entry="${title}<==>${file_path}"
         
+        ${video_player} "${file_path}"
+        add_to_hist "${entry}"
         search_results
     fi
 
@@ -468,13 +621,12 @@ search_results () {
             ;;
         *)
             show_dir="$(abs_dir "${selection}")"
-            echo "Show Dir: ${show_dir}"
             ;;
     esac
 
     case "${show_dir}" in
         ERROR)
-            notify-send -t 2000 " Error" "Could not find the specified show/movie. Check your internet connection or try updating the media list."
+            notify-send -r 309872 -t 2000 " Error" "Could not find the specified show/movie. Check your internet connection or try updating the media list."
             main
             ;;
     esac
@@ -484,17 +636,8 @@ search_results () {
 
 # Choose season directory
 season_list () {
-    dir1="$(echo "${show_dir}" | awk -F '/' '{print $NF}' )"
-    echo "Dir: $dir1"
-    dir_type="$(echo "${show_dir}" | sed "s/${dir1}//g" | sed 's/.$//g' )"
-    echo "Dir type: $dir_type"
 
-    for VAR in "${MOVIE_DIRS[@]}"
-    do
-      [[ "${VAR}" == "${dir_type}" ]] && dir_type='MOVIE' && break
-    done
-    echo "Directory Type: ${dir_type}"
-
+    check_dir
     case "${dir_type}" in
         MOVIE)
             # This will skip to episode_list
@@ -513,28 +656,22 @@ season_list () {
                 :q | " Cancel" | "")
                     exit
                     ;;
+                " Play All")
+                    title="$(awk -F '/' '{print  ".../" $(NF-2) "/" $(NF-1) "/" $(NF)}' < <(echo "${show_dir}"))"
+                    entry="${title}<==>${show_dir}"
+                    
+                    ${video_player} "${show_dir}"
+                    add_to_hist "${entry}"
+                    
+                    season_list
+                    ;;
+                :s)
+                    main
+                    ;;
+                :b | " Back")
+                    search_results
+                    ;;
             esac
-            ;;
-    esac
-
-    echo "Season Dir: ${season_dir}"
-
-    case "${season}" in
-        " Play All")
-            title="$(awk -F '/' '{print  ".../" $(NF-2) "/" $(NF-1) "/" $(NF)}' < <(echo "${show_dir}"))"
-            var="${title}<==>${show_dir}"
-            [[ "${var}" != "$(sed -n '$p' "${WATCHMENU_CACHE}/watchmenu-watch-history")" ]] && \
-            echo "${var}" >> "${WATCHMENU_CACHE}/watchmenu-watch-history"
-            ${video_player} "${show_dir}"
-            
-            season_list
-            ;;
-        :s)
-            main
-            ;;
-        :b | " Back")
-            search_results
-            ;;
     esac
 
     episode_list
@@ -542,8 +679,10 @@ season_list () {
 
 # Choose episode/movie file
 episode_list () {
-    case "${show_dir}" in
-        */Movie*)
+    
+    check_dir
+    case "${dir_type}" in
+        MOVIE)
             title=" Choose movie"
             options="$(printf " Cancel\n Back\n Play All\n%s" "$(find "${season_dir}" -mindepth 1 -maxdepth 1 -type f 2>/dev/null \
                 | awk -F '/' '{print $NF}' \
@@ -556,10 +695,10 @@ episode_list () {
             case "${movie}" in
                 " Play All")
                     title="$(awk -F '/' '{print  ".../" $(NF-2) "/" $(NF-1) "/" $(NF)}' < <(echo "${season_dir}"))"
-                    var="${title}<==>${season_dir}"
-                    [[ "${var}" != "$(sed -n '$p' "${WATCHMENU_CACHE}/watchmenu-watch-history")" ]] && \
-                    echo "${var}" >> "${WATCHMENU_CACHE}/watchmenu-watch-history"
+                    entry="${title}<==>${season_dir}"
+                    
                     ${video_player} "${season_dir}"
+                    add_to_hist "${entry}"
                     
                     episode_list
                     ;;
@@ -587,10 +726,10 @@ episode_list () {
             case "${episode}" in
                 " Play All")
                     title="$(awk -F '/' '{print  ".../" $(NF-2) "/" $(NF-1) "/" $(NF)}' < <(echo "${season_dir}"))"
-                    var="${title}<==>${season_dir}"
-                    [[ "${var}" != "$(sed -n '$p' "${WATCHMENU_CACHE}/watchmenu-watch-history")" ]] && \
-                    echo "${var}" >> "${WATCHMENU_CACHE}/watchmenu-watch-history"
+                    entry="${title}<==>${season_dir}"
+                    
                     ${video_player} "${season_dir}"
+                    add_to_hist "${entry}"
                     
                     episode_list
                     ;;
@@ -609,11 +748,10 @@ episode_list () {
 
     echo "File path: ${file_path}"
     title="$(awk -F '/' '{print  ".../" $(NF-2) "/" $(NF-1) "/" $(NF)}' < <(echo "${file_path}"))"
-    var="${title}<==>${file_path}"
-    [[ "${var}" != "$(sed -n '$p' "${WATCHMENU_CACHE}/watchmenu-watch-history")" ]] && \
-    echo "${var}" >> "${WATCHMENU_CACHE}/watchmenu-watch-history"
+    entry="${title}<==>${file_path}"
 
     ${video_player} "${file_path}"
+    add_to_hist "${entry}"
     
     episode_list
 }
