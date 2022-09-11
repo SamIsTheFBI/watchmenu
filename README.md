@@ -7,6 +7,7 @@ A little dmenu script to watch your downloaded TV shows, movies and anime in sty
 - mpv
 - awk
 - grep
+- yt-dlp
 - your media library
 - your YouTube API key (for searching YouTube videos/playlist)
 - rclone (very optional) (for cloud access)
