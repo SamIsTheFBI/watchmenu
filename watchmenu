@@ -4,16 +4,21 @@
 prevent_new () {
   if [ "$(pgrep -f "${0}")" != "$$" ]; then
       SCRIPTNAME="$(echo "${0}" | awk -F '/' '{print $NF}')"
-      echo "Another instance of ${SCRIPTNAME} already exists!"
+      echolog "Another instance of ${SCRIPTNAME} already exists!"
       [ -x "$(command -v notify-send)" ] && \
           notify-send -r 309872 -t 2000 "󰎁" "<span font = 'JetBrainsMono Nerd Font 11'>Another instance of ${SCRIPTNAME} already exists!</span>"
       exit
   fi
 }
 
+# Logging/Debugging
+echolog () {
+  [ ${DEBUG_MODE} -eq 0 ] && return 0 || echo -e "${1}"
+}
+
 # Function to update media list
 update_list () {
-    echo "Category to update: $1"
+    echolog "Category to update: $1"
     case "$1" in
     anime )
         find "${ANIME_DIRS[@]}" -maxdepth 1 -mindepth 1 -type d  2>/dev/null \
@@ -68,6 +73,9 @@ WATCHMENU_CONFIG="${XDG_CONFIG_HOME:-${HOME}/.config}/watchmenu"
 source "${WATCHMENU_CONFIG}"/watchmenu.conf
 [ ${ALLOW_MULTIPLE_INSTANCES} -eq 0 ] && prevent_new
 
+# Checking YouTube API Key
+[ -z "${YT_API_KEY}" ] && YT_API_KEY="$( cat "${HOME}"/.api_keys/YT_API_KEY )"
+
 # Select prompt
 [ -z "${WATCHMENU_PROMPT}" ] && WATCHMENU_PROMPT="$1"
 case "${WATCHMENU_PROMPT}" in
@@ -82,7 +90,7 @@ case "${WATCHMENU_PROMPT}" in
         ;;
     *)
         prompt="${WATCHMENU_PROMPT}"
-        echo "Selected custom prompt: ${prompt}"
+        echolog "Selected custom prompt: ${prompt}"
         ;;
 esac
 
@@ -93,7 +101,7 @@ case "${VIDEO_PLAYER}" in
         ;;
     *)
         video_player="${VIDEO_PLAYER}"
-        echo "Selected custom video player: ${video_player}"
+        echolog "Selected custom video player: ${video_player}"
         ;;
 esac
 
@@ -132,9 +140,9 @@ help () {
 # Check if movie or tv show directory 
 check_dir () {
     dir1="$(echo "${show_dir}" | awk -F '/' '{print $NF}' )"
-    echo "Selected: $dir1"
+    echolog "Selected: $dir1"
     dir_type="$(echo "${show_dir}" | sed "s/${dir1}//g" | sed 's/.$//g' )"
-    echo "From: ${dir_type}"
+    echolog "From: ${dir_type}"
 
     for i in "${MOVIE_DIRS[@]}"
     do
@@ -146,12 +154,12 @@ check_dir () {
 add_to_hist () {
     entry="${1}"
     if [ ! -z "${entry}" ]; then
-        echo "Entry: ${entry}"
+        echolog "Entry: ${entry}"
         title="$(echo "${entry}" | awk -F '<==>' '{print $1}' )"
         [ -z "${title}" ] && return 0
         [[ "${title}" != "$(sed -n '$p' "${WATCHMENU_CONFIG}/hist/watchmenu-watch-history" | awk -F '<==>' '{print $1}' )" ]] && \
         echo "${entry}" >> "${WATCHMENU_CONFIG}/hist/watchmenu-watch-history" 
-        echo "Added entry to watch history"
+        echolog "Added entry to watch history"
     fi
 }
 
@@ -160,7 +168,7 @@ grepFunc () {
   grep_pattern="$(echo "${1}" | \
     sed -r 's/\[/\\\[/g' | \
     sed -r 's/\]/\\\]/g' )"
-  echo "Grep Pattern: ${grep_pattern}"
+  echolog "Grep Pattern: ${grep_pattern}"
 }
 
 # Search YouTube Video
@@ -191,38 +199,42 @@ search_youtube_vid () {
         ;;
       *)
         query="${query// /+}"
-        [ -z "${YT_API_KEY}" ] && YT_API_KEY="$( cat "${HOME}"/.api_keys/YT_API_KEY )"
-        urlstring="https://www.googleapis.com/youtube/v3/search?part=snippet&q=${query}&type=video&maxResults=20&key=${YT_API_KEY}"
+        if [ ! -z "${YT_API_KEY}" ]
+        then
+          urlstring="https://www.googleapis.com/youtube/v3/search?part=snippet&q=${query}&type=video&maxResults=20&key=${YT_API_KEY}"
 
-        [ -e "${WATCHMENU_CONFIG}/yt/youtube-search-results" ] && \
-          rm -rf "${WATCHMENU_CONFIG}/yt/youtube-search-results" || \
-          touch "${WATCHMENU_CONFIG}/yt/youtube-search-results"
-        curl -s "${urlstring}" \
-          | jq -r '.items[] | "  \(.snippet.channelTitle) - \(.snippet.title)<==>https://www.youtube.com/watch?v=\(.id.videoId)"' \
-          | sed 's/&amp;/\&/g' | sed 's/&#38;/\&/g' \
-          | sed "s/&apos;/\'/g" | sed "s/&#39;/\'/g" \
-          | sed 's/&quot;/\"/g' | sed 's/&#34;/\"/g' >> "${WATCHMENU_CONFIG}/yt/youtube-search-results"
+          [ -e "${WATCHMENU_CONFIG}/yt/youtube-search-results" ] && \
+            rm -rf "${WATCHMENU_CONFIG}/yt/youtube-search-results" || \
+            touch "${WATCHMENU_CONFIG}/yt/youtube-search-results"
+          curl -s "${urlstring}" \
+            | jq -r '.items[] | "  \(.snippet.channelTitle) - \(.snippet.title)<==>https://www.youtube.com/watch?v=\(.id.videoId)"' \
+            | sed 's/&amp;/\&/g' | sed 's/&#38;/\&/g' \
+            | sed "s/&apos;/\'/g" | sed "s/&#39;/\'/g" \
+            | sed 's/&quot;/\"/g' | sed 's/&#34;/\"/g' >> "${WATCHMENU_CONFIG}/yt/youtube-search-results"
 
-        title="$(cat "${WATCHMENU_CONFIG}/yt/youtube-search-results" | awk -F '<==>' '{print $1}' | ${prompt} "Select Video" )"
+          title="$(cat "${WATCHMENU_CONFIG}/yt/youtube-search-results" | awk -F '<==>' '{print $1}' | ${prompt} "Select Video" )"
 
-        case "${title}" in
-          :b) 
-            ;;
-          :s)
-            main
-            ;;
-          *)
-            if [ ! -z "${title}" ]; then
-                grepFunc "${title}"
+          case "${title}" in
+            :b) 
+              ;;
+            :s)
+              main
+              ;;
+            *)
+              if [ ! -z "${title}" ]; then
+                  grepFunc "${title}"
 
-                entry="$(cat "${WATCHMENU_CONFIG}/yt/youtube-search-results" | grep -i "$grep_pattern" | sed -n '1p')"
-                url="$(echo "${entry}" | awk -F '<==>' '{print $2}' )"
+                  entry="$(cat "${WATCHMENU_CONFIG}/yt/youtube-search-results" | grep -i "$grep_pattern" | sed -n '1p')"
+                  url="$(echo "${entry}" | awk -F '<==>' '{print $2}' )"
 
-                ${video_player} "${url}"
-                add_to_hist "${entry}"
-            fi
-            ;;
-        esac
+                  ${video_player} "${url}"
+                  add_to_hist "${entry}"
+              fi
+              ;;
+          esac
+        else
+          echolog "No YouTube API key found!!" && notify-send -r 309872 -t 2000 "󰎁" "<span font = 'JetBrainsMono Nerd Font 11'>No YouTube API key found!!</span>"
+        fi
         ;;
     esac
     search_youtube_vid
@@ -258,23 +270,30 @@ search_youtube_playlist () {
       '')
         exit
         ;;
-    esac
+      *)
+        query="${query// /+}"
+        if [ ! -z "${YT_API_KEY}" ]
+        then
+          [ -z "${YT_API_KEY}" ] && YT_API_KEY="$( cat "${HOME}"/.api_keys/YT_API_KEY )"
+          urlstring="https://www.googleapis.com/youtube/v3/search?part=snippet&q=${query}&type=playlist&maxResults=20&key=${YT_API_KEY}"
 
-    query="${query// /+}"
-    [ -z "${YT_API_KEY}" ] && YT_API_KEY="$( cat "${HOME}"/.api_keys/YT_API_KEY )"
-    urlstring="https://www.googleapis.com/youtube/v3/search?part=snippet&q=${query}&type=playlist&maxResults=20&key=${YT_API_KEY}"
-
-    [ -e "${WATCHMENU_CONFIG}/yt/youtube-search-results" ] && \
-      rm -rf "${WATCHMENU_CONFIG}/yt/youtube-search-results" || \
-      touch "${WATCHMENU_CONFIG}/yt/youtube-search-results"
-    
-    curl -s "${urlstring}" \
-      | jq -r '.items[] | "  \(.snippet.channelTitle) - \(.snippet.title)<==>https://www.youtube.com/playlist?list=\(.id.playlistId)"' \
-      | sed 's/&amp;/\&/g' | sed 's/&#38;/\&/g' \
-      | sed "s/&apos;/\'/g" | sed "s/&#39;/\'/g" \
-      | sed 's/&quot;/\"/g' | sed 's/&#34;/\"/g' >> "${WATCHMENU_CONFIG}/yt/youtube-search-results"
-
-    list_playlists
+          [ -e "${WATCHMENU_CONFIG}/yt/youtube-search-results" ] && \
+            rm -rf "${WATCHMENU_CONFIG}/yt/youtube-search-results" || \
+            touch "${WATCHMENU_CONFIG}/yt/youtube-search-results"
+          
+          curl -s "${urlstring}" \
+            | jq -r '.items[] | "  \(.snippet.channelTitle) - \(.snippet.title)<==>https://www.youtube.com/playlist?list=\(.id.playlistId)"' \
+            | sed 's/&amp;/\&/g' | sed 's/&#38;/\&/g' \
+            | sed "s/&apos;/\'/g" | sed "s/&#39;/\'/g" \
+            | sed 's/&quot;/\"/g' | sed 's/&#34;/\"/g' >> "${WATCHMENU_CONFIG}/yt/youtube-search-results"
+          
+          list_playlists
+        else
+          echolog "No YouTube API key found!!" && notify-send -r 309872 -t 2000 "󰎁" "<span font = 'JetBrainsMono Nerd Font 11'>No YouTube API key found!!</span>"
+          search_youtube_playlist
+        fi
+        ;;
+      esac
 }
 
 # List YouTube playlists
@@ -285,7 +304,7 @@ list_playlists () {
       ":b" | "") 
         ;;
       ":s")
-        echo "To the main menu"
+        echolog "To the main menu"
         main
         ;;
       *)
@@ -328,7 +347,7 @@ list_playlists () {
 youtube_video_extract () {
     playlisturl="${1}"
     playlistId="$(echo "${playlisturl}" | awk -F '=' '{print $2}')"
-    echo "Playlist ID: ${playlistId}"
+    echolog "Playlist ID: ${playlistId}"
     yturls="${WATCHMENU_CONFIG}/yt/yt_vid_extract/${playlistId}.m3u"
     [ ! -d  "${WATCHMENU_CONFIG}/yt/yt_vid_extract" ] && mkdir -p "${WATCHMENU_CONFIG}/yt/yt_vid_extract"
     if [ ! -f "${yturls}" ]; then
@@ -386,7 +405,7 @@ main () {
     # Request selection
     main_selection="$(${prompt} "${title}" < <(echo "${options}"))"
 
-    echo "Search Query: ${main_selection}"
+    echolog "Search Query: ${main_selection}"
     case "${main_selection}" in
         " Search YouTube Videos")
             search_youtube_vid
@@ -462,7 +481,7 @@ main () {
             help
             ;;
         *"󰸳 Last Played"*)
-            echo "${LAST_PLAYED_NAME}"
+            echolog "${LAST_PLAYED_NAME}"
             case "${LAST_PLAYED_NAME}" in
               " Videos")
                   ${video_player} --playlist="${LAST_PLAYED_PATH}"
@@ -551,7 +570,7 @@ abs_dir () {
 
     case "${path}" in
         "")
-            2>&1 echo "ERROR"
+            2>&1 echolog "ERROR! Path not found:\n${path}"
             exit
             ;;
         *)
@@ -560,7 +579,7 @@ abs_dir () {
     esac
 
     func_result="${show_dir}"
-    echo "${func_result}"
+    echolog "${func_result}"
 }
 
 search_results () {
@@ -763,7 +782,7 @@ episode_list () {
             ;;
     esac
 
-    echo "File path: ${file_path}"
+    echolog "File path: ${file_path}"
     title="$(awk -F '/' '{print  ".../" $(NF-2) "/" $(NF-1) "/" $(NF)}' < <(echo "${file_path}"))"
     entry="${title}<==>${file_path}"
 
