@@ -580,6 +580,7 @@ abs_dir () {
 
     func_result="${show_dir}"
     echolog "${func_result}"
+    echo "${func_result}"
 }
 
 search_results () {
