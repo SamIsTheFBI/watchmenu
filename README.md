@@ -1,7 +1,7 @@
 <h1 align="center">watchmenu</h1>
 
 <div align="center">
-  <em>A POSIX script that organizes all of your movies and TV shows, making it easy to find & watch your media collection.</em>
+  <em>A Bash script that organizes all of your movies and TV shows, making it easy to find & watch your media collection.</em>
 </div>
 
 <div align="center">
@@ -24,6 +24,7 @@ Get a dmenu list of your media collection in a very organized way, making it has
 
 ## Dependencies
 
+- bash
 - dmenu/rofi/fzf
 - mpv
 - awk
