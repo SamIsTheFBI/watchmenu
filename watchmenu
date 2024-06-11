@@ -95,7 +95,7 @@ fi
 # Select player
 case "${VIDEO_PLAYER}" in
     mpv | "")
-        video_player="mpv --fs --save-position-on-quit --no-keepaspect-window"
+        video_player="mpv --fs --save-position-on-quit --no-keepaspect-window --force-window=yes"
         ;;
     *)
         video_player="${VIDEO_PLAYER}"
