@@ -1,4 +1,8 @@
-<h1 align="center">watchmenu</h1>
+<div align="center">
+  
+  ![Group 1 (6)](https://github.com/user-attachments/assets/164f1f96-f8de-46da-93dc-1da729eea5de)
+
+</div>
 
 <div align="center">
   <em>A Bash script that organizes all of your movies and TV shows, making it easy to find & watch your media collection.</em>
