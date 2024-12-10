@@ -551,9 +551,9 @@ abs_dir () {
     # Find $1 in different arrays of user specified directories. Not using -name flag to avoid problems with special characters.
     # Selecting every line related to $1 with `grep -F` (-F flag to select special characters as well)
     # and picking the first one with sed, since that's the root directory of $1.  
-    path="$(find "${VIDEO_DIRS[@]/%//${1}}" "${MOVIE_DIRS[@]/%//${1}}" "${ANIME_DIRS[@]/%//${1}}" "${TVSHOW_DIRS[@]/%//${1}}" -mindepth 0 -maxdepth 1 2>/dev/null \
-                    | grep -F "$1" \
-                    | sed -n '1p')"
+    
+    SEARCH_DIRS=("${VIDEO_DIRS[@]}" "${MOVIE_DIRS[@]}" "${ANIME_DIRS[@]}" "${TVSHOW_DIRS[@]}")
+    path=$(find "${SEARCH_DIRS[@]/%//}" -mindepth 1 -maxdepth 1 -name "$1" 2>/dev/null | head -n 1)
 
     case "${path}" in
         "")
